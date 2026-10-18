@@ -115,12 +115,15 @@ Examples:
     parser.add_argument("--install-menu", action="store_true", help="Register context menu in Windows Explorer")
     parser.add_argument("--uninstall-menu", action="store_true", help="Remove context menu from Windows Explorer")
     parser.add_argument("--menu-status", action="store_true", help="Check context menu installation status")
+    parser.add_argument("--enable-win11-main", action="store_true", help="Show FileMorph directly on Windows 11 main context menu (bypasses 'Show more options')")
+    parser.add_argument("--disable-win11-main", action="store_true", help="Restore default Windows 11 modern context menu")
+    parser.add_argument("--win11-status", action="store_true", help="Check if Windows 11 main context menu is active")
 
     args = parser.parse_args()
 
     # Context Menu Flags
     if args.install_menu:
-        ok, msg = install_context_menu(cascading=True)
+        ok, msg = install_context_menu(cascading=True, enable_win11_direct=True)
         print(msg)
         return
     elif args.uninstall_menu:
@@ -130,6 +133,21 @@ Examples:
     elif args.menu_status:
         installed = is_context_menu_installed()
         print(f"Context menu installed: {installed}")
+        return
+    elif args.enable_win11_main:
+        from .context_menu.installer import enable_win11_main_menu
+        ok, msg = enable_win11_main_menu(restart_exp=True)
+        print(msg)
+        return
+    elif args.disable_win11_main:
+        from .context_menu.installer import disable_win11_main_menu
+        ok, msg = disable_win11_main_menu(restart_exp=True)
+        print(msg)
+        return
+    elif args.win11_status:
+        from .context_menu.installer import is_win11_main_menu_enabled, is_windows_11
+        print(f"Is Windows 11: {is_windows_11()}")
+        print(f"Windows 11 Main Menu Direct Enabled: {is_win11_main_menu_enabled()}")
         return
 
     # PDF Split Quick Command

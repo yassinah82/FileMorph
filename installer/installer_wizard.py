@@ -19,6 +19,30 @@ APP_VERSION = "1.0.0"
 PUBLISHER = "FileMorph Software"
 ESTIMATED_SIZE_KB = 285000
 
+def is_windows_11() -> bool:
+    """Returns True if running on Windows 11 (Build >= 22000)."""
+    try:
+        return sys.getwindowsversion().build >= 22000
+    except Exception:
+        return False
+
+def enable_win11_main_menu():
+    """Enables classic full context menu on Windows 11 so FileMorph appears directly on right-click."""
+    try:
+        key_path = r"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "")
+    except Exception:
+        pass
+
+def restart_explorer():
+    """Restarts explorer.exe so Windows 11 context menu applies immediately."""
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-Command", "Stop-Process -Name explorer -Force"],
+                       creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception:
+        pass
+
 def get_bundle_dir() -> Path:
     """Returns the directory of the running script or PyInstaller _MEIPASS."""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -26,7 +50,7 @@ def get_bundle_dir() -> Path:
     return Path(__file__).resolve().parent
 
 def get_default_install_dir() -> str:
-    """Default to %LOCALAPPDATA%\Programs\FileMorph (Standard modern Windows user install)."""
+    """Default to %LOCALAPPDATA%\\Programs\\FileMorph (Standard modern Windows user install)."""
     local_app_data = os.environ.get("LOCALAPPDATA", "")
     if local_app_data:
         return str(Path(local_app_data) / "Programs" / APP_NAME)
@@ -56,7 +80,6 @@ def create_windows_shortcut(target_exe: str, shortcut_path: str, working_dir: st
         shortcut.save()
         return True
     except Exception:
-        # Fallback to PowerShell shortcut creation
         try:
             ps_cmd = (
                 f'$ws = New-Object -ComObject WScript.Shell; '
@@ -116,10 +139,9 @@ class SetupWizard(ctk.CTk):
         super().__init__()
 
         self.title("FileMorph Setup")
-        self.geometry("640x440")
+        self.geometry("640x450")
         self.resizable(False, False)
 
-        # Set App icon
         bundle_dir = get_bundle_dir()
         icon_path = bundle_dir / "assets" / "icon.ico"
         if icon_path.exists():
@@ -134,6 +156,7 @@ class SetupWizard(ctk.CTk):
         self.task_desktop_shortcut = ctk.BooleanVar(value=True)
         self.task_start_shortcut = ctk.BooleanVar(value=True)
         self.task_context_menu = ctk.BooleanVar(value=True)
+        self.task_win11_main = ctk.BooleanVar(value=True)
         self.task_add_path = ctk.BooleanVar(value=False)
         self.task_launch_app = ctk.BooleanVar(value=True)
 
@@ -141,15 +164,12 @@ class SetupWizard(ctk.CTk):
         self._show_step(0)
 
     def _build_layout(self):
-        # 1. Main Content Area
         self.content_container = ctk.CTkFrame(self, fg_color="transparent")
         self.content_container.pack(fill="both", expand=True, padx=0, pady=0)
 
-        # 2. Bottom Navigation Bar
         self.nav_frame = ctk.CTkFrame(self, height=52, corner_radius=0, fg_color=("gray85", "#1e293b"))
         self.nav_frame.pack(fill="x", side="bottom")
 
-        # Divider line
         div = ctk.CTkFrame(self.nav_frame, height=1, fg_color=("gray70", "#334155"))
         div.pack(fill="x", side="top")
 
@@ -209,7 +229,6 @@ class SetupWizard(ctk.CTk):
         self.next_btn.configure(state="normal", text="Next >")
         self.cancel_btn.configure(state="normal", text="Cancel")
 
-        # Left Banner
         sidebar = ctk.CTkFrame(self.content_container, width=170, corner_radius=0, fg_color=("#1d4ed8", "#0f172a"))
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
@@ -230,7 +249,6 @@ class SetupWizard(ctk.CTk):
         )
         ver_lbl.pack(pady=(0, 20))
 
-        # Right Main Panel
         right = ctk.CTkFrame(self.content_container, fg_color="transparent")
         right.pack(side="right", fill="both", expand=True, padx=25, pady=25)
 
@@ -245,13 +263,13 @@ class SetupWizard(ctk.CTk):
 
         body = (
             "This will install FileMorph on your computer.\n\n"
-            "FileMorph provides high-fidelity document and image file conversion directly from your "
-            "Windows Explorer right-click context menu, supporting:\n"
-            "• PDF to Word (DOCX) and Images (Custom DPI)\n"
-            "• Word (DOCX/DOC) to PDF\n"
-            "• Image to Image (JPG, PNG, WEBP, BMP, TIFF, ICO)\n"
-            "• Multi-image merge to single PDF\n"
-            "• Built-in Windows Native OCR text extraction\n\n"
+            "FileMorph provides high-fidelity conversions directly from your Windows Explorer right-click menu:\n"
+            "• PowerPoint, Word, and Images to PDF\n"
+            "• PDF to Word (DOCX) & High-Res Images\n"
+            "• PDF Split and Multi-PDF Merge\n"
+            "• Image Studio: Crop, Resize, Rotate & Flip\n"
+            "• Hardware-accelerated Windows Native OCR\n"
+            "• Main right-click menu integration for Windows 11\n\n"
             "Click Next to continue, or Cancel to exit Setup."
         )
         lbl = ctk.CTkLabel(
@@ -268,7 +286,6 @@ class SetupWizard(ctk.CTk):
         self.back_btn.configure(state="normal")
         self.next_btn.configure(state="normal", text="Next >")
 
-        # Top Header Banner
         header = ctk.CTkFrame(self.content_container, height=60, corner_radius=0, fg_color=("gray85", "#1e293b"))
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
@@ -278,7 +295,6 @@ class SetupWizard(ctk.CTk):
         h_sub = ctk.CTkLabel(header, text="Where should FileMorph be installed?", font=ctk.CTkFont(size=11), text_color=("gray40", "#94a3b8"))
         h_sub.pack(anchor="w", padx=20)
 
-        # Center Area
         center = ctk.CTkFrame(self.content_container, fg_color="transparent")
         center.pack(fill="both", expand=True, padx=25, pady=20)
 
@@ -300,7 +316,6 @@ class SetupWizard(ctk.CTk):
         browse_btn = ctk.CTkButton(picker_box, text="Browse...", width=80, command=self._browse_install_dir)
         browse_btn.pack(side="left")
 
-        # Space calculation
         free_mb = get_free_space_mb(self.install_dir)
         space_info = ctk.CTkLabel(
             center,
@@ -333,22 +348,30 @@ class SetupWizard(ctk.CTk):
         h_sub.pack(anchor="w", padx=20)
 
         center = ctk.CTkFrame(self.content_container, fg_color="transparent")
-        center.pack(fill="both", expand=True, padx=25, pady=20)
+        center.pack(fill="both", expand=True, padx=25, pady=15)
 
         t_lbl = ctk.CTkLabel(center, text="Select the additional tasks you would like Setup to perform while installing FileMorph:", font=ctk.CTkFont(size=12))
-        t_lbl.pack(anchor="w", pady=(0, 15))
+        t_lbl.pack(anchor="w", pady=(0, 10))
 
         cb1 = ctk.CTkCheckBox(center, text="Create a Desktop shortcut", variable=self.task_desktop_shortcut)
-        cb1.pack(anchor="w", pady=6)
+        cb1.pack(anchor="w", pady=4)
 
         cb2 = ctk.CTkCheckBox(center, text="Create a Start Menu shortcut", variable=self.task_start_shortcut)
-        cb2.pack(anchor="w", pady=6)
+        cb2.pack(anchor="w", pady=4)
 
-        cb3 = ctk.CTkCheckBox(center, text="Enable Windows Explorer Context Menu (1-click right-click conversions)", variable=self.task_context_menu)
-        cb3.pack(anchor="w", pady=6)
+        cb3 = ctk.CTkCheckBox(center, text="Enable Windows Explorer Context Menu (Cascading 1-click conversions)", variable=self.task_context_menu)
+        cb3.pack(anchor="w", pady=4)
+
+        if is_windows_11():
+            cb_win11 = ctk.CTkCheckBox(
+                center,
+                text="Show directly on Windows 11 main context menu (Bypass 'Show more options')",
+                variable=self.task_win11_main
+            )
+            cb_win11.pack(anchor="w", pady=4)
 
         cb4 = ctk.CTkCheckBox(center, text="Add FileMorph to User PATH environment variable", variable=self.task_add_path)
-        cb4.pack(anchor="w", pady=6)
+        cb4.pack(anchor="w", pady=4)
 
     # --- Step 3: Ready to Install Page ---
     def _render_ready_page(self):
@@ -377,6 +400,8 @@ class SetupWizard(ctk.CTk):
             tasks_list.append("• Create Start Menu shortcut")
         if self.task_context_menu.get():
             tasks_list.append("• Enable Windows Explorer Context Menu")
+        if is_windows_11() and self.task_win11_main.get():
+            tasks_list.append("• Show directly on Windows 11 main right-click menu")
         if self.task_add_path.get():
             tasks_list.append("• Add to user PATH")
 
@@ -413,7 +438,6 @@ class SetupWizard(ctk.CTk):
         self.install_progress.pack(fill="x", pady=(0, 15))
         self.install_progress.set(0.0)
 
-        # Launch background installation thread
         threading.Thread(target=self._perform_installation, daemon=True).start()
 
     def _perform_installation(self):
@@ -424,7 +448,6 @@ class SetupWizard(ctk.CTk):
             bundle_dir = get_bundle_dir()
             payload_zip = bundle_dir / "payload.zip"
 
-            # Fallback if running from source repository: locate payload.zip in installer/
             if not payload_zip.exists():
                 payload_zip = Path(__file__).resolve().parent / "payload.zip"
 
@@ -437,12 +460,12 @@ class SetupWizard(ctk.CTk):
                 for idx, item in enumerate(z.infolist()):
                     z.extract(item, target_path)
                     if idx % 50 == 0:
-                        pct = (idx / total_files) * 0.75
+                        pct = (idx / total_files) * 0.70
                         self._update_progress(pct, f"Extracting: {item.filename}")
 
-            self._update_progress(0.80, "Copying uninstaller and utilities...")
+            self._update_progress(0.75, "Copying uninstaller...")
 
-            # 2. Copy/Create Uninstaller executable or script
+            # 2. Copy Uninstaller
             uninstaller_src = bundle_dir / "uninstaller.exe"
             if not uninstaller_src.exists():
                 uninstaller_src = Path(__file__).resolve().parent / "uninstaller.exe"
@@ -451,7 +474,6 @@ class SetupWizard(ctk.CTk):
             if uninstaller_src.exists():
                 shutil.copy2(uninstaller_src, target_uninstaller)
             else:
-                # If uninstaller.exe wasn't compiled separately, copy uninstaller.py
                 py_src = Path(__file__).resolve().parent / "uninstaller.py"
                 if py_src.exists():
                     shutil.copy2(py_src, target_path / "uninstaller.py")
@@ -462,9 +484,8 @@ class SetupWizard(ctk.CTk):
             if not icon_ico.exists():
                 icon_ico = target_exe
 
-            # Desktop Shortcut
             if self.task_desktop_shortcut.get():
-                self._update_progress(0.85, "Creating Desktop shortcut...")
+                self._update_progress(0.80, "Creating Desktop shortcut...")
                 desktop_lnk = Path(os.environ.get("USERPROFILE", "")) / "Desktop" / "FileMorph.lnk"
                 create_windows_shortcut(
                     target_exe=str(target_exe),
@@ -474,9 +495,8 @@ class SetupWizard(ctk.CTk):
                     desc="FileMorph Universal File Converter"
                 )
 
-            # Start Menu Shortcut
             if self.task_start_shortcut.get():
-                self._update_progress(0.90, "Creating Start Menu shortcut...")
+                self._update_progress(0.85, "Creating Start Menu shortcut...")
                 start_folder = Path(os.environ.get("APPDATA", "")) / r"Microsoft\Windows\Start Menu\Programs\FileMorph"
                 start_folder.mkdir(parents=True, exist_ok=True)
                 create_windows_shortcut(
@@ -497,7 +517,7 @@ class SetupWizard(ctk.CTk):
 
             # 4. Context Menu Integration
             if self.task_context_menu.get():
-                self._update_progress(0.94, "Registering Windows Context Menu...")
+                self._update_progress(0.90, "Registering Windows Context Menu...")
                 try:
                     subprocess.run(
                         [str(target_exe), "--install-menu"],
@@ -508,11 +528,16 @@ class SetupWizard(ctk.CTk):
                 except Exception:
                     pass
 
-            # 5. User PATH
+            # 5. Windows 11 Main Menu Direct Toggle
+            if is_windows_11() and self.task_win11_main.get():
+                self._update_progress(0.94, "Enabling Windows 11 main context menu...")
+                enable_win11_main_menu()
+
+            # 6. User PATH
             if self.task_add_path.get():
                 add_to_user_path(str(target_path))
 
-            # 6. Windows Installed Apps entry
+            # 7. Windows Installed Apps entry
             self._update_progress(0.98, "Registering in Windows Installed Apps...")
             register_uninstall_entry(str(target_path))
 
@@ -528,7 +553,6 @@ class SetupWizard(ctk.CTk):
 
     def _apply_progress(self, pct: float, msg: str):
         self.install_progress.set(pct)
-        # Truncate filename if long
         if len(msg) > 55:
             msg = msg[:52] + "..."
         self.install_status_lbl.configure(text=msg)
@@ -573,8 +597,8 @@ class SetupWizard(ctk.CTk):
 
         body = (
             "FileMorph has been successfully installed on your computer.\n\n"
-            "You can launch FileMorph at any time using the Desktop shortcut, Start Menu, "
-            "or by right-clicking any supported document or image in Windows Explorer."
+            "FileMorph is now ready to use from your Desktop, Start Menu, "
+            "or directly on your Windows 11 main right-click menu."
         )
         lbl = ctk.CTkLabel(right, text=body, font=ctk.CTkFont(size=12), wraplength=400, justify="left")
         lbl.pack(anchor="w", pady=(0, 20))
@@ -584,7 +608,6 @@ class SetupWizard(ctk.CTk):
 
     def _on_next(self):
         if self.current_step == 1:
-            # Validate path
             path_val = self.dir_entry.get().strip()
             if not path_val:
                 messagebox.showwarning("Warning", "Please specify a valid destination folder.")
@@ -602,6 +625,9 @@ class SetupWizard(ctk.CTk):
             self.destroy()
 
     def _on_finish(self):
+        if is_windows_11() and self.task_win11_main.get():
+            restart_explorer()
+
         if self.task_launch_app.get():
             target_exe = Path(self.install_dir) / "FileMorph.exe"
             if target_exe.exists():
