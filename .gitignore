@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller & Build artifacts
+build/
+dist/
+dist_setup/
+*.spec
+installer/payload.zip
+installer/uninstaller.exe
+tests/temp/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/

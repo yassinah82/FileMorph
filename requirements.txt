@@ -1,0 +1,7 @@
+pillow>=10.0.0
+pymupdf>=1.23.0
+pdf2docx>=0.5.8
+docx2pdf>=0.1.8
+pywin32>=306
+customtkinter>=5.2.0
+python-docx>=0.8.11
