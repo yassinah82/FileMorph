@@ -132,6 +132,90 @@ class TestFileMorph(unittest.TestCase):
         self.assertTrue(res.success, f"Lossless conversion failed: {res.error}")
         self.assertTrue(os.path.exists(res.output_files[0]))
 
+    def test_10_image_crop_resize_rotate(self):
+        """Test Image Crop, Resize, Rotate, and Flip operations."""
+        # 1. Rotate 90 degrees
+        res_rot = ConversionEngine.convert(
+            self.rgb_jpg,
+            "png",
+            options={"rotate_angle": 90, "flip_h": True}
+        )
+        self.assertTrue(res_rot.success, f"Rotate failed: {res_rot.error}")
+        self.assertTrue(os.path.exists(res_rot.output_files[0]))
+
+        # 2. Resize to exact dimensions
+        res_resize = ConversionEngine.convert(
+            self.rgb_jpg,
+            "png",
+            options={"resize_dims": (100, 80), "keep_aspect_ratio": False}
+        )
+        self.assertTrue(res_resize.success, f"Resize failed: {res_resize.error}")
+        with Image.open(res_resize.output_files[0]) as im:
+            self.assertEqual(im.size, (100, 80))
+
+        # 3. Crop with 1:1 Aspect ratio
+        res_crop = ConversionEngine.convert(
+            self.rgb_jpg,
+            "png",
+            options={"crop_aspect_ratio": "1:1"}
+        )
+        self.assertTrue(res_crop.success, f"Crop failed: {res_crop.error}")
+        with Image.open(res_crop.output_files[0]) as im:
+            self.assertEqual(im.size[0], im.size[1])
+
+    def test_11_pdf_split_and_merge(self):
+        """Test splitting multi-page PDF and merging multiple PDFs."""
+        import pymupdf as fitz
+        multi_pdf_path = str(TEST_DIR / "multi_page.pdf")
+        doc = fitz.open()
+        for i in range(3):
+            page = doc.new_page(width=400, height=300)
+            page.insert_text((50, 50), f"Page {i + 1}", fontsize=20)
+        doc.save(multi_pdf_path)
+        doc.close()
+
+        # Split all pages
+        res_split = ConversionEngine.split_pdf(multi_pdf_path, output_dir=str(TEST_DIR))
+        self.assertTrue(res_split.success, f"PDF split failed: {res_split.error}")
+        self.assertEqual(len(res_split.output_files), 3)
+        for f in res_split.output_files:
+            self.assertTrue(os.path.exists(f))
+
+        # Merge the split pages back together
+        merged_out = str(TEST_DIR / "remerged.pdf")
+        res_merge = ConversionEngine.merge_pdfs(res_split.output_files, output_path=merged_out)
+        self.assertTrue(res_merge.success, f"PDF merge failed: {res_merge.error}")
+        self.assertTrue(os.path.exists(merged_out))
+
+        merged_doc = fitz.open(merged_out)
+        self.assertEqual(len(merged_doc), 3)
+        merged_doc.close()
+
+    def test_12_powerpoint_to_pdf(self):
+        """Test PowerPoint presentation export to PDF via PowerPoint COM."""
+        import pythoncom
+        import win32com.client
+        pythoncom.CoInitialize()
+
+        pptx_path = str(TEST_DIR / "sample_presentation.pptx")
+        ppt = win32com.client.DispatchEx("PowerPoint.Application")
+        pres = None
+        try:
+            pres = ppt.Presentations.Add(WithWindow=0)
+            slide = pres.Slides.Add(1, 1)  # 1 = ppLayoutTitle
+            slide.Shapes.Title.TextFrame.TextRange.Text = "FileMorph PowerPoint Test"
+            pres.SaveAs(pptx_path)
+        finally:
+            if pres:
+                pres.Close()
+            ppt.Quit()
+            pythoncom.CoUninitialize()
+
+        res = ConversionEngine.convert(pptx_path, "pdf")
+        self.assertTrue(res.success, f"PowerPoint to PDF failed: {res.error}")
+        self.assertTrue(os.path.exists(res.output_files[0]))
+
 if __name__ == "__main__":
     unittest.main()
+
 

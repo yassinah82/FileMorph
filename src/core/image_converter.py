@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
-from typing import List, Optional, Callable, Union, Dict, Any
+from typing import List, Optional, Callable, Union, Dict, Any, Tuple
 from PIL import Image
 
 from .utils import normalize_extension, prepare_image_for_mode
+from .image_editor import ImageEditor
 
 class ImageConverter:
-    """Handles Image-to-Image and Image-to-PDF conversions with optimization and privacy controls."""
+    """Handles Image-to-Image, transformations (Crop/Resize/Rotate/Flip), and Image-to-PDF conversions."""
 
     @staticmethod
     def to_image(
@@ -16,11 +17,21 @@ class ImageConverter:
         quality: int = 92,
         lossless: bool = False,
         strip_metadata: bool = True,
+        # Transform options
+        crop_box: Optional[Tuple[int, int, int, int]] = None,
+        crop_aspect_ratio: Optional[str] = None,
+        crop_margins: Optional[Tuple[float, float, float, float]] = None,
+        resize_dims: Optional[Tuple[Optional[int], Optional[int]]] = None,
+        resize_scale: Optional[float] = None,
+        keep_aspect_ratio: bool = True,
+        rotate_angle: Optional[float] = None,
+        flip_h: bool = False,
+        flip_v: bool = False,
         progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> str:
         """
-        Converts any supported image format to another image format.
-        Supports lossless compression presets, optimization, and EXIF privacy stripping.
+        Converts any supported image format to another image format with optional
+        Cropping, Resizing, Rotation, Flipping, Lossless compression, and EXIF privacy stripping.
         """
         src = Path(image_path).resolve()
         if not src.exists():
@@ -35,13 +46,37 @@ class ImageConverter:
             out_file = Path(output_path).resolve()
 
         if progress_callback:
-            progress_callback(0.2, "Reading source image...")
+            progress_callback(0.15, "Reading source image...")
 
         with Image.open(src) as img:
             exif_data = None if strip_metadata else img.info.get("exif")
 
+            # 1. Apply Rotation / Flips first
+            if rotate_angle:
+                if progress_callback:
+                    progress_callback(0.3, f"Rotating by {rotate_angle}°...")
+                img = ImageEditor.rotate(img, rotate_angle)
+
+            if flip_h or flip_v:
+                if progress_callback:
+                    progress_callback(0.4, "Flipping image...")
+                img = ImageEditor.flip(img, horizontal=flip_h, vertical=flip_v)
+
+            # 2. Apply Crop
+            if crop_box or crop_aspect_ratio or crop_margins:
+                if progress_callback:
+                    progress_callback(0.5, "Cropping image...")
+                img = ImageEditor.crop(img, box=crop_box, aspect_ratio=crop_aspect_ratio, margins_percent=crop_margins)
+
+            # 3. Apply Resize
+            if resize_dims or resize_scale:
+                if progress_callback:
+                    progress_callback(0.65, "Resizing image...")
+                w, h = resize_dims if resize_dims else (None, None)
+                img = ImageEditor.resize(img, width=w, height=h, scale=resize_scale, keep_aspect_ratio=keep_aspect_ratio)
+
             if progress_callback:
-                progress_callback(0.5, f"Optimizing and converting to {norm_target.upper()}...")
+                progress_callback(0.8, f"Encoding {norm_target.upper()} format...")
 
             img = prepare_image_for_mode(img, norm_target)
 
@@ -61,7 +96,6 @@ class ImageConverter:
                 else:
                     save_kwargs.update({"quality": quality, "lossless": False, "method": 6})
             elif norm_target == "png":
-                # Maximum compression level for PNG
                 save_kwargs.update({
                     "optimize": True,
                     "compress_level": 9
@@ -76,7 +110,7 @@ class ImageConverter:
             img.save(out_file, **save_kwargs)
 
         if progress_callback:
-            progress_callback(1.0, "Saved successfully.")
+            progress_callback(1.0, "Saved image successfully.")
 
         return str(out_file)
 
@@ -115,7 +149,6 @@ class ImageConverter:
                     raise FileNotFoundError(f"Image not found: {p}")
 
                 raw = Image.open(p)
-                # Convert RGBA to RGB with white background for PDF compatibility
                 rgb_img = prepare_image_for_mode(raw, "pdf")
                 converted_images.append(rgb_img)
 

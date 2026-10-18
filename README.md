@@ -13,12 +13,16 @@
 
 | Source Format | Target Format | Engine / Library | Technical Highlights |
 | :--- | :--- | :--- | :--- |
+| **PowerPoint (PPTX / PPT)** | **PDF** | `pywin32` / MS PowerPoint COM | Pixel-perfect presentation export to PDF with clean COM lifecycle handling. |
 | **PDF** | **DOCX / DOC** | `pdf2docx` | High-fidelity table, paragraph, margin, and font extraction. |
+| **PDF** | **Split PDF / Page Extraction** | `PyMuPDF` (`pymupdf`) | Instant lossless splitting into single pages or custom ranges (e.g. `1-3, 5, 8-10`). |
+| **Multiple PDFs** | **Merge to Single PDF** | `PyMuPDF` (`pymupdf`) | Combine multiple PDFs in custom order into one document, preserving links and vector graphics. |
 | **PDF (Scanned) / Images** | **DOCX (with OCR)** | `Windows.Media.Ocr` (`winocr`) | **Native Windows Hardware-Accelerated OCR**. Extracts text from scanned documents directly into formatted Word documents without external Tesseract binaries. |
 | **PDF** | **Images (PNG, JPG, WEBP, BMP, TIFF)** | `PyMuPDF` (`pymupdf`) | Multi-page rendering at customizable DPI (100–300 DPI). Self-contained, zero Poppler dependency. |
 | **DOCX / DOC** | **PDF** | `pywin32` / MS Word COM | Pixel-perfect native Microsoft Word rendering with safe process lifecycle cleanup (`Quit()` / `Close()`). |
 | **Images (JPG, PNG, WEBP, BMP, TIFF, ICO)** | **PDF** | `Pillow` | Single image conversion or **multi-image merge** into a unified multi-page PDF. |
 | **Image to Image** (JPG ↔ PNG ↔ WEBP ↔ BMP ↔ TIFF ↔ ICO) | `Pillow` | Automatic Alpha / RGBA composite to RGB (prevents JPEG crash), WEBP lossy/lossless, and quality control. |
+| **Image Studio Tools** | **Crop, Resize, Rotate & Flip** | `Pillow` | Aspect-ratio crop (1:1, 16:9, 4:3), Lanczos scaling, 90°/180° rotation, and horizontal/vertical flips. |
 
 ---
 
@@ -27,11 +31,12 @@
 FileMorph features a **Cascading Context Menu** with **1-Click Quick Actions** directly in Windows Explorer:
 
 ```
-Right-Click File (PDF, DOCX, PNG, JPG, WEBP, etc.)
+Right-Click File (PDF, PPTX, DOCX, PNG, JPG, WEBP, etc.)
  └── FileMorph Converter  ▶
       ├── 🖥️ Open Converter Window...
-      ├── 📄 Quick Convert to PDF
+      ├── 📄 Quick Convert to PDF (Presentations, Documents, Images)
       ├── 📝 Quick Convert to DOCX
+      ├── ✂️ Quick Split PDF into Pages
       ├── 🖼️ Quick Convert to PNG (High-Res)
       ├── 🌐 Quick Convert to WEBP (Optimized)
       └── 🔍 Extract Text via OCR to DOCX

@@ -7,6 +7,11 @@ from typing import List, Tuple, Dict
 KEY_NAME = "FileMorphConvert"
 ROOT_MENU_LABEL = "FileMorph Converter"
 
+SUPPORTED_EXTENSIONS = [
+    ".pdf", ".docx", ".doc", ".pptx", ".ppt",
+    ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
+]
+
 def get_installed_exe_or_python() -> Tuple[str, str]:
     """
     Returns (executable, script_arg).
@@ -40,12 +45,10 @@ def format_command(sub_args: str = "") -> str:
     """Builds shell command string."""
     launcher, script_arg = get_installed_exe_or_python()
     if script_arg:
-        # pythonw "main.py" "%1" ...
         if sub_args:
             return f'"{launcher}" {script_arg} "%1" {sub_args}'
         return f'"{launcher}" {script_arg} "%1"'
     else:
-        # FileMorph.exe "%1" ...
         if sub_args:
             return f'"{launcher}" "%1" {sub_args}'
         return f'"{launcher}" "%1"'
@@ -62,11 +65,16 @@ def get_subactions_for_ext(ext: str) -> List[Dict[str, str]]:
             {"key": "ToDocx", "label": "Quick Convert to DOCX", "args": "--to docx --headless --notify"},
             {"key": "ToPng", "label": "Quick Convert to PNG (High-Res)", "args": "--to png --dpi 200 --headless --notify"},
             {"key": "ToWebp", "label": "Quick Convert to WEBP", "args": "--to webp --headless --notify"},
+            {"key": "SplitPdf", "label": "Quick Split PDF into Pages", "args": "--split-pdf --headless --notify"},
             {"key": "ToDocxOcr", "label": "Extract Text via OCR to DOCX", "args": '--to "docx (ocr)" --headless --notify'}
+        ])
+    elif ext in (".pptx", ".ppt"):
+        actions.extend([
+            {"key": "ToPdf", "label": "Quick Convert Presentation to PDF", "args": "--to pdf --headless --notify"}
         ])
     elif ext in (".docx", ".doc"):
         actions.extend([
-            {"key": "ToPdf", "label": "Quick Convert to PDF", "args": "--to pdf --headless --notify"}
+            {"key": "ToPdf", "label": "Quick Convert Document to PDF", "args": "--to pdf --headless --notify"}
         ])
     else:
         # Image formats
@@ -85,12 +93,9 @@ def install_context_menu(cascading: bool = True) -> Tuple[bool, str]:
     Registers a modern cascading or direct context menu entry in HKCU.
     """
     icon_path = get_icon_path()
-    supported_extensions = [
-        ".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
-    ]
 
     try:
-        for ext in supported_extensions:
+        for ext in SUPPORTED_EXTENSIONS:
             base_key_path = f"Software\\Classes\\SystemFileAssociations\\{ext}\\shell\\{KEY_NAME}"
 
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base_key_path) as root_key:
@@ -99,13 +104,11 @@ def install_context_menu(cascading: bool = True) -> Tuple[bool, str]:
                     winreg.SetValueEx(root_key, "Icon", 0, winreg.REG_SZ, icon_path)
 
                 if cascading:
-                    # Windows Cascading Submenu pattern
                     winreg.SetValueEx(root_key, "SubCommands", 0, winreg.REG_SZ, "")
                 else:
                     winreg.SetValueEx(root_key, "", 0, winreg.REG_SZ, "Change File Type...")
 
             if cascading:
-                # Add sub-actions under 'shell' subkey
                 actions = get_subactions_for_ext(ext)
                 for act in actions:
                     sub_key_path = f"{base_key_path}\\shell\\{act['key']}"
@@ -119,7 +122,6 @@ def install_context_menu(cascading: bool = True) -> Tuple[bool, str]:
                     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, cmd_key_path) as cmd_key:
                         winreg.SetValueEx(cmd_key, "", 0, winreg.REG_SZ, cmd_str)
             else:
-                # Direct single action
                 cmd_key_path = f"{base_key_path}\\command"
                 cmd_str = format_command()
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, cmd_key_path) as cmd_key:
@@ -133,10 +135,7 @@ def uninstall_context_menu() -> Tuple[bool, str]:
     """
     Completely removes all context menu entries from HKCU.
     """
-    supported_extensions = [
-        "*", ".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
-    ]
-    targets = ["*"] + [f"SystemFileAssociations\\{ext}" for ext in supported_extensions if ext != "*"]
+    targets = ["*"] + [f"SystemFileAssociations\\{ext}" for ext in SUPPORTED_EXTENSIONS]
     removed_count = 0
 
     def delete_key_tree(root, subkey):

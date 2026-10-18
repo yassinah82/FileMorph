@@ -4,7 +4,7 @@ from typing import Dict, List, Set
 from PIL import Image
 
 # Supported format groups
-DOC_FORMATS: Set[str] = {".pdf", ".docx", ".doc"}
+DOC_FORMATS: Set[str] = {".pdf", ".docx", ".doc", ".pptx", ".ppt"}
 IMAGE_FORMATS: Set[str] = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".ico"}
 ALL_SUPPORTED_FORMATS: Set[str] = DOC_FORMATS | IMAGE_FORMATS
 
@@ -22,9 +22,12 @@ EXTENSION_MAP: Dict[str, str] = {
     "pdf": "pdf",
     "docx": "docx",
     "doc": "doc",
+    "pptx": "pptx",
+    "ppt": "ppt",
     "txt": "txt",
     "docx (ocr)": "docx_ocr",
-    "txt (ocr)": "txt_ocr"
+    "txt (ocr)": "txt_ocr",
+    "split pdf": "split_pdf"
 }
 
 def normalize_extension(ext: str) -> str:
@@ -41,15 +44,16 @@ def get_target_formats_for_file(filepath: str, include_ocr: bool = True) -> List
         targets = ["docx", "png", "jpg", "webp", "bmp", "tiff"]
         if include_ocr:
             targets.append("docx (ocr)")
+        targets.append("split pdf")
         return targets
-    elif norm_ext in ("docx", "doc"):
+    elif norm_ext in ("docx", "doc", "pptx", "ppt"):
         return ["pdf"]
     elif Path(filepath).suffix.lower() in IMAGE_FORMATS:
         img_targets = ["pdf", "png", "jpg", "webp", "bmp", "tiff", "ico"]
         if include_ocr:
             img_targets.append("docx (ocr)")
-        # Filter out self
-        return [t for t in img_targets if normalize_extension(t) != norm_ext]
+        # Include self for image transformations (e.g. crop/resize/rotate PNG to PNG)
+        return img_targets
     return []
 
 def prepare_image_for_mode(img: Image.Image, target_format: str, bg_color=(255, 255, 255)) -> Image.Image:
@@ -63,7 +67,6 @@ def prepare_image_for_mode(img: Image.Image, target_format: str, bg_color=(255, 
 
     if needs_rgb or target_format == "pdf":
         if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-            # Convert palette with transparency to RGBA
             img_rgba = img.convert("RGBA")
             background = Image.new("RGBA", img_rgba.size, (*bg_color, 255))
             composite = Image.alpha_composite(background, img_rgba)
