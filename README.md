@@ -5,7 +5,12 @@
 > **This entire repository and application was autonomously conceived, architected, coded, and built by AI.**
 > From the conversion pipelines, safe Windows COM process lifecycles, and Native Windows Media OCR integration, to the CustomTkinter GUI, Windows Registry context menu extensions, end-to-end integration tests, and standalone Setup Wizard installer — every line was created using **Google DeepMind's Antigravity AI**.
 
+[![Download FileMorph Setup](https://img.shields.io/badge/Download-FileMorph__Setup.exe-blue?style=for-the-badge&logo=windows)](https://github.com/yassinah82/FileMorph/releases/download/v1.0.0/FileMorph_Setup.exe)
+[![GitHub Release](https://img.shields.io/github/v/release/yassinah82/FileMorph?style=for-the-badge)](https://github.com/yassinah82/FileMorph/releases/tag/v1.0.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
 **FileMorph** is a high-performance Windows desktop application and Shell extension for seamless file conversions directly from the Windows Explorer context menu or a standalone UI.
+
 
 ---
 
